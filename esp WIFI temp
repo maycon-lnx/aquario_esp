@@ -1,0 +1,98 @@
+#include<ESP8266WiFi.h> //Biblioteca para funcionamento do WiFi do ESP
+#include<ESP8266WebServer.h> //Biblioteca para o ESP funcionar como servidor
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+
+const char* ssid = "";  // Rede WiFi
+const char* password = "";  //Senha da Rede WiFi
+
+IPAddress local_IP(172,16,0,53); //COLOQUE UMA FAIXA DE IP DISPONÍVEL DO SEU ROTEADOR. EX: 192.168.1.110 **** ISSO VARIA, NO MEU CASO É: 192.168.0.175
+IPAddress gateway(172,16,0,1); //GATEWAY DE CONEXÃO (ALTERE PARA O GATEWAY DO SEU ROTEADOR)
+IPAddress subnet(255,255,255,0); //MASCARA DE REDE
+
+ESP8266WebServer server(80); //server na porta 80
+
+
+// GPIO where the DS18B20 is connected to
+const int oneWireBus = 4;     
+
+// Setup a oneWire instance to communicate with any OneWire devices
+OneWire oneWire(oneWireBus);
+
+// Pass our oneWire reference to Dallas Temperature sensor 
+DallasTemperature sensors(&oneWire);
+
+void setup() {
+  // put your setup code here, to run once:
+
+  // Start the Serial Monitor
+  Serial.begin(115200);
+  // Start the DS18B20 sensor
+  sensors.begin();
+
+  Serial.println("Conectando a Rede: "); //Imprime na serial a mensagem
+  Serial.println(ssid); //Imprime na serial o nome da Rede Wi-Fi
+
+  WiFi.begin(ssid, password); //Inicialização da comunicação Wi-Fi
+
+  //Verificação da conexão
+  while (WiFi.status() != WL_CONNECTED) { //Enquanto estiver aguardando status da conexão
+    delay(1000);
+    Serial.print("."); //Imprime pontos
+  }
+  Serial.println("");
+  Serial.println("WiFi Conectado");
+  Serial.print("IP: ");
+  Serial.println(WiFi.localIP()); //Função para exibir o IP da ESP
+
+  server.on("/", handle_OnConnect); //Servidor recebe uma solicitação HTTP - chama a função handle_OnConnect
+  server.onNotFound(handle_NotFound); //Servidor recebe uma solicitação HTTP não especificada - chama a função handle_NotFound
+
+  server.begin(); //Inicializa o servidor
+  Serial.println("Servidor HTTP inicializado");
+
+}
+
+void loop() {
+  server.handleClient(); //Chama o método handleClient()
+
+  
+}
+
+
+void handle_OnConnect() {
+  // put your main code here, to run repeatedly:
+  sensors.requestTemperatures(); 
+  float temperatureC = sensors.getTempCByIndex(0);
+  float temperatureF = sensors.getTempFByIndex(0);
+  Serial.println(temperatureC);
+  //Serial.println("ºC");
+  //Serial.print(temperatureF);
+ // Serial.println("ºF");
+ 
+  server.send(200, "text/html", EnvioHTML(temperatureC)); //Envia as informações usando o código 200, especifica o conteúdo como "text/html" e chama a função EnvioHTML
+
+
+}
+void handle_NotFound() { //Função para lidar com o erro 404
+  server.send(404, "text/plain", "Não encontrado"); //Envia o código 404, especifica o conteúdo como "text/pain" e envia a mensagem "Não encontrado"
+
+}
+
+String EnvioHTML(float Temperaturastat) { //Exibindo a página da web em HTML
+  String ptr = "<!DOCTYPE html> <html>\n"; //Indica o envio do código HTML
+  ptr += "<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n"; //Torna a página da Web responsiva em qualquer navegador Web
+  //ptr += "<meta http-equiv='refresh' content='2'>";//Atualizar browser a cada 2 segundos
+  ptr += "</head>\n";
+  ptr += "<body>\n";
+ 
+  ptr += (float)Temperaturastat;
+ 
+  ptr += "</div>\n";
+  ptr += "</body>\n";
+  ptr += "</html>\n";
+  return ptr;
+
+}
+
